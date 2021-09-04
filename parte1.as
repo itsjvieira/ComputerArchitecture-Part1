@@ -10,6 +10,20 @@ IO                 EQU         FFFEh
 NL                 EQU         000Ah
 TOPOPILHA          EQU         FDFFh
 MASCARA            EQU         8016h
+MASC_INTERRUPCOES  EQU         FFFAh
+MASC_BOTOES        EQU         0000000001111110b
+
+;---------------------------;
+; DEFINICAO DE INTERRUPCOES ;
+;---------------------------;
+ORIG        FE01h ; zona das interrupcoes dos botoes
+
+INT_1              WORD        BOTAO1
+INT_2              WORD        BOTAO2
+INT_3              WORD        BOTAO3
+INT_4              WORD        BOTAO4
+INT_5              WORD        BOTAO5
+INT_6              WORD        BOTAO6
 
 ;-------;
 ; DADOS ;
@@ -20,10 +34,48 @@ ALEAT_INIC         WORD        3124h
 ALEAT              WORD        0000h
 CONTA_TENTATIVAS   WORD        0000h
 CONTA_CARATERES    WORD        0000h
+CONTA_INTRO        WORD        0000h
 
 ORIG        0000h
 JMP         INICIO
 
+;-------------------------;
+; ROTINAS DE INTERRUPCOES ;
+;-------------------------;
+; ler tentativa e passar para a pilha
+BOTAO1: INC         M[CONTA_INTRO]
+        ADD         R2, 0001h
+        ROL         R2, 4
+        RTI
+
+BOTAO2: INC         M[CONTA_INTRO]
+        ADD         R2, 0002h
+        ROL         R2, 4
+        RTI
+
+BOTAO3: INC         M[CONTA_INTRO]
+        ADD         R2, 0003h
+        ROL         R2, 4
+        RTI
+
+BOTAO4: INC         M[CONTA_INTRO]
+        ADD         R2, 0004h
+        ROL         R2, 4
+        RTI
+
+BOTAO5: INC         M[CONTA_INTRO]
+        ADD         R2, 0005h
+        ROL         R2, 4
+        RTI
+
+BOTAO6: INC         M[CONTA_INTRO]
+        ADD         R2, 0006h
+        ROL         R2, 4
+        RTI
+
+;---------------------------------------;
+; IMPRIMIR CARATERES NA JANELA DE TEXTO ;
+;---------------------------------------;
 ; imprime para a consola os 'x'
 OUT_X: MOV         R4, 'x'
        MOV         M[IO], R4
@@ -40,6 +92,9 @@ OUT_HIFEN: MOV         R4, '-'
            INC         M[CONTA_CARATERES]
            JMP         VAL_HIFENS
 
+;--------------------------------------;
+; PROCESSAR SEMELHANCA CHAVE/TENTATIVA ;
+;--------------------------------------;
 PROC_X1: ADD        R3, 1000h
          INC        M[CONTA_CARATERES]
          CALL       OUT_X
@@ -74,6 +129,9 @@ PROC_O4: ADD        R3, 0002h
          CALL       OUT_O
          JMP        VAL_HIFENS
 
+;------------------------------------;
+; VALIDAR SEMELHANCA CHAVE/TENTATIVA ;
+;------------------------------------;
 ; validacao de numeros iguais nas mesmas posicoes
 VAL_X: MOV         R5, M[SP+8]
        MOV         R6, M[SP+4]
@@ -288,7 +346,6 @@ ALEAT_INT_4: MOV         R2, 0006h
 ; inicializar registos
 MOV         R4, R0
 MOV         R5, R0
-MOV         R7, R0
 
 ; passagem da chave para a pilha
 CHAVE_PILHA: MOV         R5, R1
@@ -313,10 +370,19 @@ CHAVE_PILHA: MOV         R5, R1
 ; processar nova tentativa
 PROC_TENTA: MOV         R2, R0
             INC         M[CONTA_TENTATIVAS] ; incrementa o contador de tentativas
+            MOV         R4, MASC_BOTOES
+            MOV         M[MASC_INTERRUPCOES], R4
 
 ; leitura da tentativa para r2
-LEITURA_TENTA: CMP         R2, 0000h
-               BR.Z        LEITURA_TENTA
+LEITURA_TENTA: ENI ; ativar as interrupcoes para os botoes i1-i6
+               MOV         R4, M[CONTA_INTRO]
+               CMP         R4, 4
+               BR.NZ       LEITURA_TENTA
+
+ROR         R2, 4 ; desfazer a ultima rotacao para a esquerda
+DSI ; desativar as interrupcoes
+
+MOV         M[CONTA_INTRO], R0
 
 ; repor o registo r3 para guardar a nova semelhança chave/tentativa
 MOV         R3, R0
@@ -341,7 +407,8 @@ TENTATIVA_PILHA: MOV         R6, R2
                  ROR         R6, 000Ch
                  PUSH        R6
 
-                 JMP         VAL_X
+; validar semelhanca chave/tentativa
+JMP         VAL_X
 
 ; pilha apos guardar chave e tentativa
 ; -------
