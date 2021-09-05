@@ -121,6 +121,44 @@ FIM_IMPRIME: ADD         R4, 0100h
              MOV         M[IO], R4
              RET
 
+;------------------------;
+; LIMPAR JANELA DE TEXTO ;
+;------------------------;
+LIMPA_JANELA: PUSH        R4
+              PUSH        R5
+              PUSH        R6
+              PUSH        R7
+              MOV         R5, R0 ; linha atual
+              MOV         R6, R0 ; coluna atual
+              MOV         R7, R0
+              MOV         M[POSICAO_CURSOR], R0
+              MOV         M[CURSOR_TEXTO], R0
+LINHAS: MOV         R5, R0
+COLUNAS: MOV         R4, ' '
+         MOV         M[IO], R4
+         INC         R5
+         MOV         R7, M[POSICAO_CURSOR]
+         ADD         R7, R5
+         MOV         M[CURSOR_TEXTO], R7
+         CMP         R5, 80 ; a janela tem 80 colunas
+         BR.NZ       COLUNAS
+
+         MOV         R7, M[POSICAO_CURSOR]
+         ADD         R7, 0100h
+         MOV         M[POSICAO_CURSOR], R7
+         MOV         M[CURSOR_TEXTO], R7
+         INC         R6
+         CMP         R6, 24 ; a janela tem 24 linhas
+         BR.NZ       LINHAS
+         ; repor valores
+         MOV         M[POSICAO_CURSOR], R0
+         MOV         M[CURSOR_TEXTO], R0
+         POP         R7
+         POP         R6
+         POP         R5
+         POP         R4
+         RET
+
 ;---------------------------------------;
 ; IMPRIMIR CARATERES NA JANELA DE TEXTO ;
 ;---------------------------------------;
@@ -437,8 +475,6 @@ CALL        IMPRIME_STRING
 ; passar o texto para a rotina de impressao atraves do registo r7
 MOV         R7, TEXTO_INICIO
 CALL        IMPRIME_STRING
-MOV         R4, NL ; mudanca de linha
-MOV         M[IO], R4
 
 MOV         R4, MASC_BOTAO_IA
 MOV         M[MASC_INTERRUPCOES], R4
@@ -450,6 +486,7 @@ ESPERA_INICIO: CMP         R4, R0
                BR.Z        ESPERA_INICIO
 
 DSI
+CALL        LIMPA_JANELA
 
 ; processar nova tentativa
 PROC_TENTA: MOV         R2, R0
@@ -547,8 +584,6 @@ REINICIO: POP         R4 ; remover chave da pilha
           ; passar o texto para a rotina de impressao atraves do registo r7
           MOV         R7, TEXTO_REINICIO
           CALL        IMPRIME_STRING
-          MOV         R4, NL ; mudanca de linha
-          MOV         M[IO], R4
           MOV         R4, R0
           ENI
 ; ciclo enquanto a interrupcao do botao iA nao alterar valor de r4
@@ -556,6 +591,7 @@ ESPERA_REINICIO: CMP         R4, R0
                  BR.Z        ESPERA_REINICIO
 
 DSI
+CALL        LIMPA_JANELA
 JMP         INICIO
 
 ;-----------------;
