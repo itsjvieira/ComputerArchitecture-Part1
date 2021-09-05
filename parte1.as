@@ -13,6 +13,8 @@ MASCARA            EQU         8016h
 MASC_INTERRUPCOES  EQU         FFFAh
 MASC_BOTOES_I1_I6  EQU         0000000001111110b
 MASC_BOTAO_IA      EQU         0000010000000000b
+CARATERE_CONTROLO  EQU         '@'
+CURSOR_TEXTO       EQU         FFFCh
 
 ;---------------------------;
 ; DEFINICAO DE INTERRUPCOES ;
@@ -40,6 +42,11 @@ ALEAT              WORD        0000h
 CONTA_TENTATIVAS   WORD        0000h
 CONTA_CARATERES    WORD        0000h
 CONTA_INTRO        WORD        0000h
+POSICAO_CURSOR     WORD        0000h
+TEXTO_TITULO       STR         'MASTERMIND@'
+TEXTO_INICIO       STR         'Carregue no botao IA para iniciar o jogo@'
+TEXTO_VITORIA      STR         'PARABENS! Acertou na chave@'
+TEXTO_GAMEOVER     STR         'GAMEOVER@'
 
 ORIG        0000h
 JMP         INICIO
@@ -93,6 +100,25 @@ BOTAO6: INC         M[CONTA_INTRO]
 ; alterar valor de r4 para sair do ciclo ESPERA_INICIO
 BOTAO_IA: INC         R4
           RTI
+
+;-------------------------------------;
+; IMPRIMIR STRINGS NA JANELA DE TEXTO ;
+;-------------------------------------;
+IMPRIME_STRING: MOV         R4, M[POSICAO_CURSOR]
+CICLO_IMPRIME: MOV         R5, M[R7]
+               CMP         R5, CARATERE_CONTROLO
+               BR.Z        FIM_IMPRIME
+               MOV         M[CURSOR_TEXTO], R4
+               MOV         M[IO], R5
+               INC         R4
+               INC         R7
+               BR          CICLO_IMPRIME
+FIM_IMPRIME: ADD         R4, 0100h
+             MOV         M[POSICAO_CURSOR], R4
+             MOV         M[CURSOR_TEXTO], R4
+             MOV         R4, NL ; mudanca de linha
+             MOV         M[IO], R4
+             RET
 
 ;---------------------------------------;
 ; IMPRIMIR CARATERES NA JANELA DE TEXTO ;
@@ -179,7 +205,14 @@ VAL_X: MOV         R5, M[SP+8]
        CMP         R5, R6
 
        CMP         R3, 1111h
-       JMP.Z       FIM
+       JMP.Z       VITORIA
+       JMP         VAL_X1_O2
+
+VITORIA: MOV         R4, NL ; mudanca de linha
+         MOV         M[IO], R4
+         MOV         R7, TEXTO_VITORIA ; passar o texto para a rotina de impressao atraves do registo r7
+         CALL        IMPRIME_STRING
+         JMP         FIM
 
 ; validacao de numeros iguais mas em posicoes distintas
 VAL_X1_O2: MOV         R5, R3
@@ -388,6 +421,16 @@ CHAVE_PILHA: MOV         R5, R1
              ROR         R5, 000Ch
              PUSH        R5
 
+; passar o texto para a rotina de impressao atraves do registo r7
+MOV         R7, TEXTO_TITULO
+CALL        IMPRIME_STRING
+
+; passar o texto para a rotina de impressao atraves do registo r7
+MOV         R7, TEXTO_INICIO
+CALL        IMPRIME_STRING
+MOV         R4, NL ; mudanca de linha
+MOV         M[IO], R4
+
 MOV         R4, MASC_BOTAO_IA
 MOV         M[MASC_INTERRUPCOES], R4
 MOV         R4, R0
@@ -477,6 +520,10 @@ VAL_TENTA: POP         R4 ; remover tentativa antiga da pilha
            MOV         R4, M[CONTA_TENTATIVAS]
            CMP         R4, 12 ; validacao das doze tentativas
            JMP.NZ      PROC_TENTA
+
+; passar o texto para a rotina de impressao atraves do registo r7
+MOV         R7, TEXTO_GAMEOVER
+CALL        IMPRIME_STRING
 
 ;-----------------;
 ; FIM DO PROGRAMA ;
