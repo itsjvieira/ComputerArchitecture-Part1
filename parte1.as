@@ -212,7 +212,12 @@ VITORIA: MOV         R4, NL ; mudanca de linha
          MOV         M[IO], R4
          MOV         R7, TEXTO_VITORIA ; passar o texto para a rotina de impressao atraves do registo r7
          CALL        IMPRIME_STRING
-         JMP         FIM
+         POP         R4 ; remover tentativa antiga da pilha
+         POP         R4
+         POP         R4
+         POP         R4
+         MOV         R4, 0
+         JMP         REINICIO
 
 ; validacao de numeros iguais mas em posicoes distintas
 VAL_X1_O2: MOV         R5, R3
@@ -343,6 +348,7 @@ JMP         VAL_TENTA
 INICIO: MOV         R1, TOPOPILHA
         MOV         SP, R1
         MOV         M[CONTA_TENTATIVAS], R0 ; inicializa o contador de tentativas
+        MOV         R5, R0
 
 ; geracao aleatoria de uma sequencia
 VAL_ALEAT: MOV         R1, M[ALEAT_INIC]
@@ -361,13 +367,13 @@ SE_UM: MOV         R1, M[ALEAT_INIC]
        ROR         R1, 0001h
 
 CONTA_ALGARISMOS: INC         R5
-                  CMP         R5, 0001h
+                  CMP         R5, 1
                   JMP.Z       ALEAT_INT_1
-                  CMP         R5, 0002h
+                  CMP         R5, 2
                   JMP.Z       ALEAT_INT_2
-                  CMP         R5, 0003h
+                  CMP         R5, 3
                   JMP.Z       ALEAT_INT_3
-                  CMP         R5, 0004h
+                  CMP         R5, 4
                   JMP.Z       ALEAT_INT_4
 
 ALEAT_INT_1: MOV         R2, 0006h
@@ -524,6 +530,15 @@ VAL_TENTA: POP         R4 ; remover tentativa antiga da pilha
 ; passar o texto para a rotina de impressao atraves do registo r7
 MOV         R7, TEXTO_GAMEOVER
 CALL        IMPRIME_STRING
+
+REINICIO: POP         R4 ; remover chave da pilha
+          POP         R4
+          POP         R4
+          POP         R4
+          MOV         R4, 0
+          MOV         M[ALEAT], R0
+          MOV         M[CONTA_CARATERES], R0
+          JMP         INICIO
 
 ;-----------------;
 ; FIM DO PROGRAMA ;
