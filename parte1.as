@@ -45,6 +45,7 @@ CONTA_INTRO        WORD        0000h
 POSICAO_CURSOR     WORD        0000h
 TEXTO_TITULO       STR         'MASTERMIND@'
 TEXTO_INICIO       STR         'Carregue no botao IA para iniciar o jogo@'
+TEXTO_REINICIO     STR         'Carregue no botao IA para reiniciar o jogo@'
 TEXTO_VITORIA      STR         'PARABENS! Acertou na chave@'
 TEXTO_GAMEOVER     STR         'GAMEOVER@'
 
@@ -212,6 +213,8 @@ VITORIA: MOV         R4, NL ; mudanca de linha
          MOV         M[IO], R4
          MOV         R7, TEXTO_VITORIA ; passar o texto para a rotina de impressao atraves do registo r7
          CALL        IMPRIME_STRING
+         MOV         R4, NL ; mudanca de linha
+         MOV         M[IO], R4
          POP         R4 ; remover tentativa antiga da pilha
          POP         R4
          POP         R4
@@ -530,15 +533,30 @@ VAL_TENTA: POP         R4 ; remover tentativa antiga da pilha
 ; passar o texto para a rotina de impressao atraves do registo r7
 MOV         R7, TEXTO_GAMEOVER
 CALL        IMPRIME_STRING
+MOV         R4, NL ; mudanca de linha
+MOV         M[IO], R4
 
 REINICIO: POP         R4 ; remover chave da pilha
           POP         R4
           POP         R4
           POP         R4
-          MOV         R4, 0
           MOV         M[ALEAT], R0
           MOV         M[CONTA_CARATERES], R0
-          JMP         INICIO
+          MOV         R4, MASC_BOTAO_IA
+          MOV         M[MASC_INTERRUPCOES], R4
+          ; passar o texto para a rotina de impressao atraves do registo r7
+          MOV         R7, TEXTO_REINICIO
+          CALL        IMPRIME_STRING
+          MOV         R4, NL ; mudanca de linha
+          MOV         M[IO], R4
+          MOV         R4, R0
+          ENI
+; ciclo enquanto a interrupcao do botao iA nao alterar valor de r4
+ESPERA_REINICIO: CMP         R4, R0
+                 BR.Z        ESPERA_REINICIO
+
+DSI
+JMP         INICIO
 
 ;-----------------;
 ; FIM DO PROGRAMA ;
