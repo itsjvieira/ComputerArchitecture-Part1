@@ -11,12 +11,13 @@ NL                 EQU         000Ah
 TOPOPILHA          EQU         FDFFh
 MASCARA            EQU         8016h
 MASC_INTERRUPCOES  EQU         FFFAh
-MASC_BOTOES        EQU         0000000001111110b
+MASC_BOTOES_I1_I6  EQU         0000000001111110b
+MASC_BOTAO_IA      EQU         0000010000000000b
 
 ;---------------------------;
 ; DEFINICAO DE INTERRUPCOES ;
 ;---------------------------;
-ORIG        FE01h ; zona das interrupcoes dos botoes
+ORIG        FE01h ; zona das interrupcoes dos botoes i1-i6
 
 INT_1              WORD        BOTAO1
 INT_2              WORD        BOTAO2
@@ -24,6 +25,10 @@ INT_3              WORD        BOTAO3
 INT_4              WORD        BOTAO4
 INT_5              WORD        BOTAO5
 INT_6              WORD        BOTAO6
+
+ORIG        FE0Ah ; zona da interrupcao do botao iA
+
+INT_A              WORD        BOTAO_IA
 
 ;-------;
 ; DADOS ;
@@ -42,36 +47,52 @@ JMP         INICIO
 ;-------------------------;
 ; ROTINAS DE INTERRUPCOES ;
 ;-------------------------;
-; ler tentativa e passar para a pilha
+; ler tentativa
 BOTAO1: INC         M[CONTA_INTRO]
+        MOV         R4, '1'
+        MOV         M[IO], R4
         ADD         R2, 0001h
         ROL         R2, 4
         RTI
 
 BOTAO2: INC         M[CONTA_INTRO]
+        MOV         R4, '2'
+        MOV         M[IO], R4
         ADD         R2, 0002h
         ROL         R2, 4
         RTI
 
 BOTAO3: INC         M[CONTA_INTRO]
+        MOV         R4, '3'
+        MOV         M[IO], R4
         ADD         R2, 0003h
         ROL         R2, 4
         RTI
 
 BOTAO4: INC         M[CONTA_INTRO]
+        MOV         R4, '4'
+        MOV         M[IO], R4
         ADD         R2, 0004h
         ROL         R2, 4
         RTI
 
 BOTAO5: INC         M[CONTA_INTRO]
+        MOV         R4, '5'
+        MOV         M[IO], R4
         ADD         R2, 0005h
         ROL         R2, 4
         RTI
 
 BOTAO6: INC         M[CONTA_INTRO]
+        MOV         R4, '6'
+        MOV         M[IO], R4
         ADD         R2, 0006h
         ROL         R2, 4
         RTI
+
+; alterar valor de r4 para sair do ciclo ESPERA_INICIO
+BOTAO_IA: INC         R4
+          RTI
 
 ;---------------------------------------;
 ; IMPRIMIR CARATERES NA JANELA DE TEXTO ;
@@ -367,10 +388,21 @@ CHAVE_PILHA: MOV         R5, R1
              ROR         R5, 000Ch
              PUSH        R5
 
+MOV         R4, MASC_BOTAO_IA
+MOV         M[MASC_INTERRUPCOES], R4
+MOV         R4, R0
+ENI
+
+; ciclo enquanto a interrupcao do botao iA nao alterar valor de r4
+ESPERA_INICIO: CMP         R4, R0
+               BR.Z        ESPERA_INICIO
+
+DSI
+
 ; processar nova tentativa
 PROC_TENTA: MOV         R2, R0
             INC         M[CONTA_TENTATIVAS] ; incrementa o contador de tentativas
-            MOV         R4, MASC_BOTOES
+            MOV         R4, MASC_BOTOES_I1_I6
             MOV         M[MASC_INTERRUPCOES], R4
 
 ; leitura da tentativa para r2
@@ -381,6 +413,9 @@ LEITURA_TENTA: ENI ; ativar as interrupcoes para os botoes i1-i6
 
 ROR         R2, 4 ; desfazer a ultima rotacao para a esquerda
 DSI ; desativar as interrupcoes
+
+MOV         R4, NL ; mudanca de linha
+MOV         M[IO], R4
 
 MOV         M[CONTA_INTRO], R0
 
@@ -436,6 +471,7 @@ VAL_TENTA: POP         R4 ; remover tentativa antiga da pilha
            POP         R4
            POP         R4
            MOV         R4, NL ; mudanca de linha
+           MOV         M[IO], R4
            MOV         M[IO], R4
            MOV         M[CONTA_CARATERES], R0
            MOV         R4, M[CONTA_TENTATIVAS]
