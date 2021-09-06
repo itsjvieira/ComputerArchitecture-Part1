@@ -19,7 +19,13 @@ CURSOR_TEXTO            EQU         FFFCh
 TEMPO_PORTO_FREQ        EQU         FFF6h
 TEMPO_PORTO_ATIVA       EQU         FFF7h
 LEDS                    EQU         FFF8h
+SETE_SEGM_DIREITA       EQU         FFF0h
+SETE_SEGM_ESQUERDA      EQU         FFF1h
 TEMPO_FREQUENCIA        EQU         5
+LCD_PORTO_CONTROLO      EQU         FFF4h
+LCD_PORTO_ESCRITA       EQU         FFF5h
+LCD_CARATERE_DIREITA    EQU         1000000000000000b
+LCD_CARATERE_ESQUERDA   EQU         1000000000000001b
 
 ;---------------------------;
 ; DEFINICAO DE INTERRUPCOES ;
@@ -51,6 +57,7 @@ ALEAT              WORD        0000h
 CONTA_TENTATIVAS   WORD        0000h
 CONTA_CARATERES    WORD        0000h
 CONTA_INTRO        WORD        0000h
+MELHOR_PONTUACAO   WORD        0000h
 POSICAO_CURSOR     WORD        0000h
 TEXTO_TITULO       STR         'MASTERMIND@'
 TEXTO_INICIO       STR         'Carregue no botao IA para iniciar o jogo@'
@@ -147,6 +154,49 @@ LEITURA_SUCESSO: POP         R6
                  POP         R5
                  MOV         R4, 1 ; o registo r4 indicara se a leitura foi ou nao bem sucedida
                  RET
+
+; escrita da pontuacao atual no display de sete segmentos
+ESCRITA_PONTUACAO: PUSH        R4
+                   PUSH        R5
+                   MOV         R4, M[CONTA_TENTATIVAS]
+                   MOV         R5, 10
+                   DIV         R4, R5
+                   MOV         M[SETE_SEGM_DIREITA], R5 ; resto da divisao, algarismo das unidades
+                   MOV         M[SETE_SEGM_ESQUERDA], R4 ; resultado da divisao, algarismo das dezenas
+                   POP         R5
+                   POP         R4
+                   RET
+
+; verificar se a pontuacao obtida e a melhor ate ao momento e se for atualiza no LCD
+VERIFICAR_MELHOR_PONTUACAO: PUSH        R4
+                            PUSH        R5
+                            PUSH        R6
+                            MOV         R4, M[MELHOR_PONTUACAO]
+                            MOV         R5, M[CONTA_TENTATIVAS]
+                            CMP         R4, R0
+                            BR.Z        ATUALIZA_PONTUACAO
+                            CMP         R4, R5
+                            BR.P        ATUALIZA_PONTUACAO
+                            POP         R6
+                            POP         R5
+                            POP         R4
+                            RET
+
+ATUALIZA_PONTUACAO:         MOV         M[MELHOR_PONTUACAO], R5
+                            MOV         R6, 10
+                            DIV         R5, R6
+                            ADD         R5, 0030h ; codigo ascii para os carateres dos numeros situam-se entre 0030h e 0039h
+                            ADD         R6, 0030h
+                            MOV         R4, LCD_CARATERE_DIREITA ; posicao do cursor
+                            MOV         M[LCD_PORTO_CONTROLO], R4
+                            MOV         M[LCD_PORTO_ESCRITA], R5
+                            MOV         R4, LCD_CARATERE_ESQUERDA ; posicao do cursor
+                            MOV         M[LCD_PORTO_CONTROLO], R4
+                            MOV         M[LCD_PORTO_ESCRITA], R6
+                            POP         R6
+                            POP         R5
+                            POP         R4
+                            RET
 
 ;-------------------------------------;
 ; IMPRIMIR STRINGS NA JANELA DE TEXTO ;
@@ -435,6 +485,7 @@ JMP         VAL_TENTA
 INICIO: MOV         R1, TOPOPILHA
         MOV         SP, R1
         MOV         M[CONTA_TENTATIVAS], R0 ; inicializa o contador de tentativas
+        CALL        ESCRITA_PONTUACAO
         MOV         R5, R0
 
 ; geracao aleatoria de uma sequencia
@@ -537,6 +588,7 @@ CALL        LIMPA_JANELA
 ; processar nova tentativa
 PROC_TENTA: MOV         R2, R0
             INC         M[CONTA_TENTATIVAS] ; incrementa o contador de tentativas
+            CALL        ESCRITA_PONTUACAO
             MOV         R4, MASC_BOTOES_I1_I6_TEMPO
             MOV         M[MASC_INTERRUPCOES], R4
 
@@ -636,6 +688,7 @@ REINICIO: POP         R4 ; remover chave da pilha
           POP         R4
           POP         R4
           POP         R4
+          CALL        VERIFICAR_MELHOR_PONTUACAO
           MOV         M[ALEAT], R0
           MOV         M[CONTA_CARATERES], R0
           MOV         M[LEDS], R0 ; apagar todos os leds
