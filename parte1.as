@@ -52,7 +52,7 @@ INT_15             WORD        TEMPO
 ;-------;
 ORIG        8000h ; zona de dados
 
-ALEAT_INIC         WORD        3124h
+ALEAT_INIC         WORD        0000h
 ALEAT              WORD        0000h
 CONTA_TENTATIVAS   WORD        0000h
 CONTA_CARATERES    WORD        0000h
@@ -488,58 +488,60 @@ INICIO: MOV         R1, TOPOPILHA
         CALL        ESCRITA_PONTUACAO
         MOV         R5, R0
 
+; passar o texto para a rotina de impressao atraves do registo r7
+MOV         R7, TEXTO_TITULO
+CALL        IMPRIME_STRING
+
+; passar o texto para a rotina de impressao atraves do registo r7
+MOV         R7, TEXTO_INICIO
+CALL        IMPRIME_STRING
+
+MOV         R4, MASC_BOTAO_IA
+MOV         M[MASC_INTERRUPCOES], R4
+MOV         R4, R0
+ENI
+
+; ciclo enquanto a interrupcao do botao iA nao alterar valor de r4
+ESPERA_INICIO: INC         M[ALEAT_INIC]
+               CMP         R4, R0
+               BR.Z        ESPERA_INICIO
+
+DSI
+CALL        LIMPA_JANELA
+
 ; geracao aleatoria de uma sequencia
-VAL_ALEAT: MOV         R1, M[ALEAT_INIC]
-           AND         R1, 0001h
-           CMP         R1, 0000h
-           JMP.Z       SE_ZERO
-           JMP         SE_UM
+MOV         R3, R0
+MOV         R5, 4
+
+ALEAT_CICLO: MOV         R1, M[ALEAT_INIC]
+             ROL         R3, 4
+             AND         R1, 0001h
+             CMP         R5, R0
+             JMP.Z       ALEAT_FIM
+             CMP         R1, 0000h
+             JMP.Z       SE_ZERO
+             JMP         SE_UM
 
 SE_ZERO: MOV         R1, M[ALEAT_INIC]
          ROR         R1, 0001h
-         JMP         CONTA_ALGARISMOS
+         MOV         M[ALEAT_INIC], R1
+         JMP         ALEAT_ALGS
 
 SE_UM: MOV         R1, M[ALEAT_INIC]
        MOV         R2, M[MASCARA]
        XOR         R1, R2
        ROR         R1, 0001h
+       MOV         M[ALEAT_INIC], R1
 
-CONTA_ALGARISMOS: INC         R5
-                  CMP         R5, 1
-                  JMP.Z       ALEAT_INT_1
-                  CMP         R5, 2
-                  JMP.Z       ALEAT_INT_2
-                  CMP         R5, 3
-                  JMP.Z       ALEAT_INT_3
-                  CMP         R5, 4
-                  JMP.Z       ALEAT_INT_4
+ALEAT_ALGS: MOV         R2, 0005h
+            DIV         R1, R2
+            INC         R2
+            ADD         R3, R2
+            DEC         R5
+            JMP         ALEAT_CICLO
 
-ALEAT_INT_1: MOV         R2, 0006h
-             DIV         R1, R2
-             INC         R2
-             ADD         M[ALEAT], R2
-             JMP         CONTA_ALGARISMOS
-
-ALEAT_INT_2: MOV         R2, 0006h
-             DIV         R1, R2
-             INC         R2
-             ROR         R2, 0004h
-             ADD         M[ALEAT], R2
-             JMP         CONTA_ALGARISMOS
-
-ALEAT_INT_3: MOV         R2, 0006h
-             DIV         R1, R2
-             INC         R2
-             ROR         R2, 0008h
-             ADD         M[ALEAT], R2
-             JMP         CONTA_ALGARISMOS
-
-ALEAT_INT_4: MOV         R2, 0006h
-             DIV         R1, R2
-             INC         R2
-             ROR         R2, 000Ch
-             ADD         M[ALEAT], R2
-             MOV         R1, M[ALEAT]
+ALEAT_FIM: MOV         M[ALEAT], R3
+           MOV         R1, M[ALEAT]
 
 ; inicializar registos
 MOV         R4, R0
@@ -564,26 +566,6 @@ CHAVE_PILHA: MOV         R5, R1
              AND         R5, F000h
              ROR         R5, 000Ch
              PUSH        R5
-
-; passar o texto para a rotina de impressao atraves do registo r7
-MOV         R7, TEXTO_TITULO
-CALL        IMPRIME_STRING
-
-; passar o texto para a rotina de impressao atraves do registo r7
-MOV         R7, TEXTO_INICIO
-CALL        IMPRIME_STRING
-
-MOV         R4, MASC_BOTAO_IA
-MOV         M[MASC_INTERRUPCOES], R4
-MOV         R4, R0
-ENI
-
-; ciclo enquanto a interrupcao do botao iA nao alterar valor de r4
-ESPERA_INICIO: CMP         R4, R0
-               BR.Z        ESPERA_INICIO
-
-DSI
-CALL        LIMPA_JANELA
 
 ; processar nova tentativa
 PROC_TENTA: MOV         R2, R0
@@ -690,6 +672,7 @@ REINICIO: POP         R4 ; remover chave da pilha
           POP         R4
           CALL        VERIFICAR_MELHOR_PONTUACAO
           MOV         M[ALEAT], R0
+          MOV         M[ALEAT_INIC], R0
           MOV         M[CONTA_CARATERES], R0
           MOV         M[LEDS], R0 ; apagar todos os leds
           MOV         R4, MASC_BOTAO_IA
