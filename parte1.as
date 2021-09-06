@@ -6,15 +6,20 @@
 ;------------;
 ; CONSTANTES ;
 ;------------;
-IO                 EQU         FFFEh
-NL                 EQU         000Ah
-TOPOPILHA          EQU         FDFFh
-MASCARA            EQU         8016h
-MASC_INTERRUPCOES  EQU         FFFAh
-MASC_BOTOES_I1_I6  EQU         0000000001111110b
-MASC_BOTAO_IA      EQU         0000010000000000b
-CARATERE_CONTROLO  EQU         '@'
-CURSOR_TEXTO       EQU         FFFCh
+IO                      EQU         FFFEh
+NL                      EQU         000Ah
+TOPOPILHA               EQU         FDFFh
+MASCARA                 EQU         8016h
+MASC_INTERRUPCOES       EQU         FFFAh
+MASC_BOTOES_I1_I6_TEMPO EQU         1000000001111110b
+MASC_BOTAO_IA           EQU         0000010000000000b
+MASC_LEDS               EQU         1111111111111111b
+CARATERE_CONTROLO       EQU         '@'
+CURSOR_TEXTO            EQU         FFFCh
+TEMPO_PORTO_FREQ        EQU         FFF6h
+TEMPO_PORTO_ATIVA       EQU         FFF7h
+LEDS                    EQU         FFF8h
+TEMPO_FREQUENCIA        EQU         5
 
 ;---------------------------;
 ; DEFINICAO DE INTERRUPCOES ;
@@ -32,6 +37,10 @@ ORIG        FE0Ah ; zona da interrupcao do botao iA
 
 INT_A              WORD        BOTAO_IA
 
+ORIG        FE0Fh ; zona da interrupcao do temporizador
+
+INT_15             WORD        TEMPO
+
 ;-------;
 ; DADOS ;
 ;-------;
@@ -46,6 +55,7 @@ POSICAO_CURSOR     WORD        0000h
 TEXTO_TITULO       STR         'MASTERMIND@'
 TEXTO_INICIO       STR         'Carregue no botao IA para iniciar o jogo@'
 TEXTO_REINICIO     STR         'Carregue no botao IA para reiniciar o jogo@'
+TEXTO_TEMPO        STR         'Acabou o tempo!@'
 TEXTO_VITORIA      STR         'PARABENS! Acertou na chave@'
 TEXTO_GAMEOVER     STR         'GAMEOVER@'
 
@@ -101,6 +111,42 @@ BOTAO6: INC         M[CONTA_INTRO]
 ; alterar valor de r4 para sair do ciclo ESPERA_INICIO
 BOTAO_IA: INC         R4
           RTI
+
+; ativar o temporizador e definir o intervalo de tempo entre interrupcoes
+TEMPO: PUSH        R5
+       MOV         R4, 1
+       MOV         R5, TEMPO_FREQUENCIA
+       MOV         M[TEMPO_PORTO_FREQ], R5 ; definir a frequencia com que o temporizador gera uma nova interrupcao
+       MOV         R5, 1
+       MOV         M[TEMPO_PORTO_ATIVA], R5
+       POP         R5
+       RTI
+
+; leitura da tentativa
+LEITURA_TENTA: PUSH        R5
+               PUSH        R6
+               MOV         R6, MASC_LEDS
+LEITURA_CICLO: MOV         R5, M[CONTA_INTRO]
+               CMP         R5, 4
+               BR.Z        LEITURA_SUCESSO
+               MOV         M[LEDS], R6
+               CMP         R6, R0 ; verificar se os leds estao todos apagados
+               BR.Z        LEITURA_FIM_TEMPO
+               CMP         R4, 1 ; verificar se a interrupcao do temporizador foi ativada
+               BR.NZ       LEITURA_CICLO
+               SHL         R6, 1
+               MOV         R4, 0
+               BR          LEITURA_CICLO
+
+LEITURA_FIM_TEMPO: POP         R6
+                   POP         R5
+                   MOV         R4, 0 ; o registo r4 indicara se a leitura foi ou nao bem sucedida
+                   RET
+
+LEITURA_SUCESSO: POP         R6
+                 POP         R5
+                 MOV         R4, 1 ; o registo r4 indicara se a leitura foi ou nao bem sucedida
+                 RET
 
 ;-------------------------------------;
 ; IMPRIMIR STRINGS NA JANELA DE TEXTO ;
@@ -491,25 +537,38 @@ CALL        LIMPA_JANELA
 ; processar nova tentativa
 PROC_TENTA: MOV         R2, R0
             INC         M[CONTA_TENTATIVAS] ; incrementa o contador de tentativas
-            MOV         R4, MASC_BOTOES_I1_I6
+            MOV         R4, MASC_BOTOES_I1_I6_TEMPO
             MOV         M[MASC_INTERRUPCOES], R4
 
 ; leitura da tentativa para r2
-LEITURA_TENTA: ENI ; ativar as interrupcoes para os botoes i1-i6
-               MOV         R4, M[CONTA_INTRO]
-               CMP         R4, 4
-               BR.NZ       LEITURA_TENTA
+ENI ; ativar as interrupcoes para os botoes i1-i6
+INT         15
+CALL        LEITURA_TENTA
 
-ROR         R2, 4 ; desfazer a ultima rotacao para a esquerda
-DSI ; desativar as interrupcoes
-
+CMP         R4, 1
+JMP.Z       FIM_PROC_TENTA ; se a jogado tiver sido feita antes do tempo acabar
 MOV         R4, NL ; mudanca de linha
 MOV         M[IO], R4
-
+; passar o texto para a rotina de impressao atraves do registo r7
+MOV         R7, TEXTO_TEMPO
+CALL        IMPRIME_STRING
+PUSH        R0 ; preencher o espaco da pilha respetivo a tentativa
+PUSH        R0 ; este sera descartado ao validar a nova tentativa
+PUSH        R0
+PUSH        R0
 MOV         M[CONTA_INTRO], R0
+JMP         VAL_TENTA
 
-; repor o registo r3 para guardar a nova semelhança chave/tentativa
-MOV         R3, R0
+FIM_PROC_TENTA: ROR         R2, 4 ; desfazer a ultima rotacao para a esquerda
+                DSI ; desativar as interrupcoes
+
+                MOV         R4, NL ; mudanca de linha
+                MOV         M[IO], R4
+
+                MOV         M[CONTA_INTRO], R0
+
+                ; repor o registo r3 para guardar a nova semelhança chave/tentativa
+                MOV         R3, R0
 
 ; passagem da tentativa para a pilha
 TENTATIVA_PILHA: MOV         R6, R2
@@ -579,6 +638,7 @@ REINICIO: POP         R4 ; remover chave da pilha
           POP         R4
           MOV         M[ALEAT], R0
           MOV         M[CONTA_CARATERES], R0
+          MOV         M[LEDS], R0 ; apagar todos os leds
           MOV         R4, MASC_BOTAO_IA
           MOV         M[MASC_INTERRUPCOES], R4
           ; passar o texto para a rotina de impressao atraves do registo r7
