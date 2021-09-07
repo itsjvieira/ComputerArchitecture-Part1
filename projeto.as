@@ -222,38 +222,18 @@ FIM_IMPRIME: ADD         R4, 0100h
 ;------------------------;
 LIMPA_JANELA: PUSH        R4
               PUSH        R5
-              PUSH        R6
-              PUSH        R7
-              MOV         R5, R0 ; linha atual
-              MOV         R6, R0 ; coluna atual
-              MOV         R7, R0
-              MOV         M[POSICAO_CURSOR], R0
+              MOV         R5, 10000
               MOV         M[CURSOR_TEXTO], R0
-LINHAS: MOV         R5, R0
-COLUNAS: MOV         R4, ' '
-         MOV         M[IO], R4
-         INC         R5
-         MOV         R7, M[POSICAO_CURSOR]
-         ADD         R7, R5
-         MOV         M[CURSOR_TEXTO], R7
-         CMP         R5, 80 ; a janela tem 80 colunas
-         BR.NZ       COLUNAS
-
-         MOV         R7, M[POSICAO_CURSOR]
-         ADD         R7, 0100h
-         MOV         M[POSICAO_CURSOR], R7
-         MOV         M[CURSOR_TEXTO], R7
-         INC         R6
-         CMP         R6, 24 ; a janela tem 24 linhas
-         BR.NZ       LINHAS
-         ; repor valores
-         MOV         M[POSICAO_CURSOR], R0
-         MOV         M[CURSOR_TEXTO], R0
-         POP         R7
-         POP         R6
-         POP         R5
-         POP         R4
-         RET
+              MOV         M[POSICAO_CURSOR], R0
+LIMPA_JANELA_CICLO: MOV         R4, ' '
+                    MOV         M[IO], R4
+                    DEC         R5
+                    BR.NZ       LIMPA_JANELA_CICLO
+LIMPA_JANELA_FIM: MOV         M[CURSOR_TEXTO], R0
+                  MOV         M[POSICAO_CURSOR], R0
+                  POP         R5
+                  POP         R4
+                  RET
 
 ;---------------------------------------;
 ; IMPRIMIR CARATERES NA JANELA DE TEXTO ;
