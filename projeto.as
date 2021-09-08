@@ -7,7 +7,6 @@
 ; CONSTANTES ;
 ;------------;
 IO                      EQU         FFFEh
-NL                      EQU         000Ah
 TOPOPILHA               EQU         FDFFh
 MASCARA                 EQU         8016h
 MASC_INTERRUPCOES       EQU         FFFAh
@@ -65,8 +64,11 @@ TEXTO_REINICIO     STR         'Carregue no botao IA para reiniciar o jogo@'
 TEXTO_TEMPO        STR         'Acabou o tempo!@'
 TEXTO_VITORIA      STR         'PARABENS! Acertou na chave@'
 TEXTO_GAMEOVER     STR         'GAMEOVER@'
+TEXTO_SEPARADOR    STR         ': @'
 
 ORIG        0000h
+MOV         R7, FFFFh
+MOV         M[CURSOR_TEXTO], R7 ; inicializar cursor
 JMP         INICIO
 
 ;-------------------------;
@@ -75,42 +77,42 @@ JMP         INICIO
 ; ler tentativa
 BOTAO1: INC         M[CONTA_INTRO]
         MOV         R4, '1'
-        MOV         M[IO], R4
+        CALL        IMPRIME_CARATERE
         ADD         R2, 0001h
         ROL         R2, 4
         RTI
 
 BOTAO2: INC         M[CONTA_INTRO]
         MOV         R4, '2'
-        MOV         M[IO], R4
+        CALL        IMPRIME_CARATERE
         ADD         R2, 0002h
         ROL         R2, 4
         RTI
 
 BOTAO3: INC         M[CONTA_INTRO]
         MOV         R4, '3'
-        MOV         M[IO], R4
+        CALL        IMPRIME_CARATERE
         ADD         R2, 0003h
         ROL         R2, 4
         RTI
 
 BOTAO4: INC         M[CONTA_INTRO]
         MOV         R4, '4'
-        MOV         M[IO], R4
+        CALL        IMPRIME_CARATERE
         ADD         R2, 0004h
         ROL         R2, 4
         RTI
 
 BOTAO5: INC         M[CONTA_INTRO]
         MOV         R4, '5'
-        MOV         M[IO], R4
+        CALL        IMPRIME_CARATERE
         ADD         R2, 0005h
         ROL         R2, 4
         RTI
 
 BOTAO6: INC         M[CONTA_INTRO]
         MOV         R4, '6'
-        MOV         M[IO], R4
+        CALL        IMPRIME_CARATERE
         ADD         R2, 0006h
         ROL         R2, 4
         RTI
@@ -199,40 +201,57 @@ ATUALIZA_PONTUACAO:         MOV         M[MELHOR_PONTUACAO], R5
                             RET
 
 ;-------------------------------------;
+; MUDANCA DE LINHA NA JANELA DE TEXTO ;
+;-------------------------------------;
+NOVALINHA: MOV         R4, M[POSICAO_CURSOR]
+           AND         R4, FF00h
+           ADD         R4, 0100h
+           MOV         M[POSICAO_CURSOR], R4
+           MOV         M[CURSOR_TEXTO], R4
+           RET
+
+;---------------------------------------;
+; IMPRIMIR CARATERES NA JANELA DE TEXTO ;
+;---------------------------------------;
+IMPRIME_CARATERE: PUSH        R5
+                  MOV         R5, M[POSICAO_CURSOR]
+                  MOV         M[CURSOR_TEXTO], R5
+                  MOV         M[IO], R4
+                  INC         M[POSICAO_CURSOR]
+                  POP         R5
+                  RET
+
+;-------------------------------------;
 ; IMPRIMIR STRINGS NA JANELA DE TEXTO ;
 ;-------------------------------------;
-IMPRIME_STRING: MOV         R4, M[POSICAO_CURSOR]
-CICLO_IMPRIME: MOV         R5, M[R7]
-               CMP         R5, CARATERE_CONTROLO
+IMPRIME_STRING: PUSH        R4
+                PUSH        R7
+CICLO_IMPRIME: MOV         R4, M[R7]
+               CMP         R4, CARATERE_CONTROLO
                BR.Z        FIM_IMPRIME
-               MOV         M[CURSOR_TEXTO], R4
-               MOV         M[IO], R5
-               INC         R4
+               CALL        IMPRIME_CARATERE
                INC         R7
                BR          CICLO_IMPRIME
-FIM_IMPRIME: ADD         R4, 0100h
-             MOV         M[POSICAO_CURSOR], R4
-             MOV         M[CURSOR_TEXTO], R4
-             MOV         R4, NL ; mudanca de linha
-             MOV         M[IO], R4
+FIM_IMPRIME: POP         R7
+             POP         R4
              RET
 
 ;------------------------;
 ; LIMPAR JANELA DE TEXTO ;
 ;------------------------;
-LIMPA_JANELA: PUSH        R4
+LIMPA_JANELA: PUSH        R7
               PUSH        R5
               MOV         R5, 10000
               MOV         M[CURSOR_TEXTO], R0
               MOV         M[POSICAO_CURSOR], R0
 LIMPA_JANELA_CICLO: MOV         R4, ' '
-                    MOV         M[IO], R4
+                    CALL        IMPRIME_CARATERE
                     DEC         R5
                     BR.NZ       LIMPA_JANELA_CICLO
 LIMPA_JANELA_FIM: MOV         M[CURSOR_TEXTO], R0
                   MOV         M[POSICAO_CURSOR], R0
                   POP         R5
-                  POP         R4
+                  POP         R7
                   RET
 
 ;---------------------------------------;
@@ -240,17 +259,17 @@ LIMPA_JANELA_FIM: MOV         M[CURSOR_TEXTO], R0
 ;---------------------------------------;
 ; imprime para a consola os 'x'
 OUT_X: MOV         R4, 'x'
-       MOV         M[IO], R4
+       CALL        IMPRIME_CARATERE
        RET
 
 ; imprime para a consola os 'o'
 OUT_O: MOV         R4, 'o'
-       MOV         M[IO], R4
+       CALL        IMPRIME_CARATERE
        RET
 
 ; imprime para a consola os '-'
 OUT_HIFEN: MOV         R4, '-'
-           MOV         M[IO], R4
+           CALL        IMPRIME_CARATERE
            INC         M[CONTA_CARATERES]
            JMP         VAL_HIFENS
 
@@ -323,12 +342,10 @@ VAL_X: MOV         R5, M[SP+8]
        JMP.Z       VITORIA
        JMP         VAL_X1_O2
 
-VITORIA: MOV         R4, NL ; mudanca de linha
-         MOV         M[IO], R4
+VITORIA: CALL        NOVALINHA
          MOV         R7, TEXTO_VITORIA ; passar o texto para a rotina de impressao atraves do registo r7
          CALL        IMPRIME_STRING
-         MOV         R4, NL ; mudanca de linha
-         MOV         M[IO], R4
+         CALL        NOVALINHA
          POP         R4 ; remover tentativa antiga da pilha
          POP         R4
          POP         R4
@@ -471,6 +488,7 @@ INICIO: MOV         R1, TOPOPILHA
 ; passar o texto para a rotina de impressao atraves do registo r7
 MOV         R7, TEXTO_TITULO
 CALL        IMPRIME_STRING
+CALL        NOVALINHA
 
 ; passar o texto para a rotina de impressao atraves do registo r7
 MOV         R7, TEXTO_INICIO
@@ -561,8 +579,9 @@ CALL        LEITURA_TENTA
 
 CMP         R4, 1
 JMP.Z       FIM_PROC_TENTA ; se a jogado tiver sido feita antes do tempo acabar
-MOV         R4, NL ; mudanca de linha
-MOV         M[IO], R4
+; passar o texto para a rotina de impressao atraves do registo r7
+MOV         R7, TEXTO_SEPARADOR
+CALL        IMPRIME_STRING
 ; passar o texto para a rotina de impressao atraves do registo r7
 MOV         R7, TEXTO_TEMPO
 CALL        IMPRIME_STRING
@@ -576,8 +595,9 @@ JMP         VAL_TENTA
 FIM_PROC_TENTA: ROR         R2, 4 ; desfazer a ultima rotacao para a esquerda
                 DSI ; desativar as interrupcoes
 
-                MOV         R4, NL ; mudanca de linha
-                MOV         M[IO], R4
+                ; passar o texto para a rotina de impressao atraves do registo r7
+                MOV         R7, TEXTO_SEPARADOR
+                CALL        IMPRIME_STRING
 
                 MOV         M[CONTA_INTRO], R0
 
@@ -632,9 +652,7 @@ VAL_TENTA: POP         R4 ; remover tentativa antiga da pilha
            POP         R4
            POP         R4
            POP         R4
-           MOV         R4, NL ; mudanca de linha
-           MOV         M[IO], R4
-           MOV         M[IO], R4
+           CALL        NOVALINHA
            MOV         M[CONTA_CARATERES], R0
            MOV         R4, M[CONTA_TENTATIVAS]
            CMP         R4, 12 ; validacao das doze tentativas
@@ -643,8 +661,7 @@ VAL_TENTA: POP         R4 ; remover tentativa antiga da pilha
 ; passar o texto para a rotina de impressao atraves do registo r7
 MOV         R7, TEXTO_GAMEOVER
 CALL        IMPRIME_STRING
-MOV         R4, NL ; mudanca de linha
-MOV         M[IO], R4
+CALL        NOVALINHA
 
 REINICIO: POP         R4 ; remover chave da pilha
           POP         R4
