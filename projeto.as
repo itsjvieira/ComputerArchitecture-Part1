@@ -346,6 +346,7 @@ VITORIA: CALL        NOVALINHA
          MOV         R7, TEXTO_VITORIA ; passar o texto para a rotina de impressao atraves do registo r7
          CALL        IMPRIME_STRING
          CALL        NOVALINHA
+         CALL        VERIFICAR_MELHOR_PONTUACAO
          POP         R4 ; remover tentativa antiga da pilha
          POP         R4
          POP         R4
@@ -667,7 +668,6 @@ REINICIO: POP         R4 ; remover chave da pilha
           POP         R4
           POP         R4
           POP         R4
-          CALL        VERIFICAR_MELHOR_PONTUACAO
           MOV         M[ALEAT], R0
           MOV         M[ALEAT_INIC], R0
           MOV         M[CONTA_CARATERES], R0
